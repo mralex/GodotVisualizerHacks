@@ -15,6 +15,30 @@ var total_energy: float = 0.0
 @export var smoothing: float = 0.2
 @export var intensity: float = 1.5
 
+# FFT frequency ranges (Hz)
+var bass_min: float = 20.0
+var bass_max: float = 250.0
+var mid_min: float = 250.0
+var mid_max: float = 4000.0
+var high_min: float = 4000.0
+var high_max: float = 16000.0
+
+# GUI
+var gui_layer: CanvasLayer
+var gui_panel: PanelContainer
+var gui_visible: bool = false
+var gui_sliders: Dictionary = {}
+
+# Defaults
+const DEFAULT_SMOOTHING: float = 0.2
+const DEFAULT_INTENSITY: float = 1.5
+const DEFAULT_BASS_MIN: float = 20.0
+const DEFAULT_BASS_MAX: float = 250.0
+const DEFAULT_MID_MIN: float = 250.0
+const DEFAULT_MID_MAX: float = 4000.0
+const DEFAULT_HIGH_MIN: float = 4000.0
+const DEFAULT_HIGH_MAX: float = 16000.0
+
 # Visual elements
 var crystal_shapes: Array[MeshInstance3D] = []
 var ribbons: Array[MeshInstance3D] = []
@@ -49,6 +73,7 @@ func _ready() -> void:
 	setup_background_shapes()
 	setup_abstract_visuals()
 	setup_post_processing()
+	setup_gui()
 
 func setup_audio() -> void:
 	var bus_idx = AudioServer.get_bus_index("Record")
@@ -437,6 +462,156 @@ func setup_post_processing() -> void:
 	post_process_rect.material = post_process_material
 	canvas_layer.add_child(post_process_rect)
 
+func setup_gui() -> void:
+	gui_layer = CanvasLayer.new()
+	gui_layer.layer = 20
+	add_child(gui_layer)
+
+	gui_panel = PanelContainer.new()
+	gui_panel.position = Vector2(20, 20)
+	gui_panel.visible = false
+	gui_layer.add_child(gui_panel)
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.12, 0.9)
+	style.border_color = Color(0.3, 0.3, 0.35)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(15)
+	gui_panel.add_theme_stylebox_override("panel", style)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	gui_panel.add_child(vbox)
+
+	# Title
+	var title = Label.new()
+	title.text = "VISUALIZER SETTINGS"
+	title.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	vbox.add_child(title)
+
+	# Smoothing slider
+	vbox.add_child(create_slider("smoothing", "Smoothing", smoothing, 0.01, 1.0, func(val): smoothing = val))
+
+	# Intensity slider
+	vbox.add_child(create_slider("intensity", "Intensity", intensity, 0.1, 5.0, func(val): intensity = val))
+
+	# Separator
+	var sep1 = HSeparator.new()
+	vbox.add_child(sep1)
+
+	# FFT Ranges label
+	var fft_label = Label.new()
+	fft_label.text = "FFT RANGES (Hz)"
+	fft_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	vbox.add_child(fft_label)
+
+	# Bass range
+	vbox.add_child(create_slider("bass_min", "Bass Min", bass_min, 20.0, 200.0, func(val): bass_min = val))
+	vbox.add_child(create_slider("bass_max", "Bass Max", bass_max, 100.0, 500.0, func(val): bass_max = val))
+
+	# Mid range
+	vbox.add_child(create_slider("mid_min", "Mid Min", mid_min, 100.0, 1000.0, func(val): mid_min = val))
+	vbox.add_child(create_slider("mid_max", "Mid Max", mid_max, 1000.0, 8000.0, func(val): mid_max = val))
+
+	# High range
+	vbox.add_child(create_slider("high_min", "High Min", high_min, 2000.0, 8000.0, func(val): high_min = val))
+	vbox.add_child(create_slider("high_max", "High Max", high_max, 8000.0, 20000.0, func(val): high_max = val))
+
+	# Separator
+	var sep2 = HSeparator.new()
+	vbox.add_child(sep2)
+
+	# Reset button
+	var reset_btn = Button.new()
+	reset_btn.text = "Reset to Defaults"
+	reset_btn.pressed.connect(reset_to_defaults)
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = Color(0.25, 0.25, 0.28)
+	btn_style.set_corner_radius_all(3)
+	btn_style.set_content_margin_all(8)
+	reset_btn.add_theme_stylebox_override("normal", btn_style)
+	var btn_hover = StyleBoxFlat.new()
+	btn_hover.bg_color = Color(0.35, 0.35, 0.38)
+	btn_hover.set_corner_radius_all(3)
+	btn_hover.set_content_margin_all(8)
+	reset_btn.add_theme_stylebox_override("hover", btn_hover)
+	reset_btn.add_theme_color_override("font_color", Color(0.9, 0.5, 0.2))
+	vbox.add_child(reset_btn)
+
+	# Instructions
+	var hint = Label.new()
+	hint.text = "[Space] to toggle"
+	hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	vbox.add_child(hint)
+
+func create_slider(key: String, label_text: String, initial_value: float, min_val: float, max_val: float, callback: Callable) -> HBoxContainer:
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 10)
+
+	var label = Label.new()
+	label.text = label_text
+	label.custom_minimum_size.x = 80
+	label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	hbox.add_child(label)
+
+	var slider = HSlider.new()
+	slider.min_value = min_val
+	slider.max_value = max_val
+	slider.value = initial_value
+	slider.step = 0.01 if max_val <= 5.0 else 1.0
+	slider.custom_minimum_size.x = 150
+	hbox.add_child(slider)
+
+	var value_label = Label.new()
+	value_label.text = "%.2f" % initial_value if max_val <= 5.0 else "%.0f" % initial_value
+	value_label.custom_minimum_size.x = 50
+	value_label.add_theme_color_override("font_color", Color(0.9, 0.5, 0.2))
+	hbox.add_child(value_label)
+
+	slider.value_changed.connect(func(val):
+		callback.call(val)
+		value_label.text = "%.2f" % val if max_val <= 5.0 else "%.0f" % val
+	)
+
+	# Store reference for reset
+	gui_sliders[key] = {"slider": slider, "label": value_label, "max": max_val}
+
+	return hbox
+
+func reset_to_defaults() -> void:
+	smoothing = DEFAULT_SMOOTHING
+	intensity = DEFAULT_INTENSITY
+	bass_min = DEFAULT_BASS_MIN
+	bass_max = DEFAULT_BASS_MAX
+	mid_min = DEFAULT_MID_MIN
+	mid_max = DEFAULT_MID_MAX
+	high_min = DEFAULT_HIGH_MIN
+	high_max = DEFAULT_HIGH_MAX
+
+	# Update sliders
+	var defaults = {
+		"smoothing": DEFAULT_SMOOTHING,
+		"intensity": DEFAULT_INTENSITY,
+		"bass_min": DEFAULT_BASS_MIN,
+		"bass_max": DEFAULT_BASS_MAX,
+		"mid_min": DEFAULT_MID_MIN,
+		"mid_max": DEFAULT_MID_MAX,
+		"high_min": DEFAULT_HIGH_MIN,
+		"high_max": DEFAULT_HIGH_MAX
+	}
+
+	for key in gui_sliders:
+		var data = gui_sliders[key]
+		var val = defaults[key]
+		data["slider"].value = val
+		data["label"].text = "%.2f" % val if data["max"] <= 5.0 else "%.0f" % val
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+		gui_visible = !gui_visible
+		gui_panel.visible = gui_visible
+
 func _process(delta: float) -> void:
 	time += delta
 	analyze_spectrum()
@@ -447,9 +622,9 @@ func analyze_spectrum() -> void:
 	if not spectrum_analyzer:
 		return
 
-	var bass_raw = get_frequency_range_energy(20.0, 250.0)
-	var mid_raw = get_frequency_range_energy(250.0, 4000.0)
-	var high_raw = get_frequency_range_energy(4000.0, 16000.0)
+	var bass_raw = get_frequency_range_energy(bass_min, bass_max)
+	var mid_raw = get_frequency_range_energy(mid_min, mid_max)
+	var high_raw = get_frequency_range_energy(high_min, high_max)
 
 	bass_energy = lerp(bass_energy, bass_raw * intensity, smoothing)
 	mid_energy = lerp(mid_energy, mid_raw * intensity, smoothing)
