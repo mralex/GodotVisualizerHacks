@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://dphot7csaccvb"]
+
+[ext_resource type="Script" uid="uid://dol3lop6r62v4" path="res://AudioVisualizer.gd" id="1_visualizer"]
+[ext_resource type="Script" path="res://OrbitCamera.gd" id="2_orbit"]
+
+[sub_resource type="Environment" id="Environment_world"]
+background_mode = 1
+background_color = Color(0.02, 0.02, 0.05, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.15, 0.1, 0.2, 1)
+ambient_light_energy = 0.5
+glow_enabled = true
+glow_intensity = 1.5
+glow_strength = 1.2
+glow_bloom = 0.3
+glow_blend_mode = 0
+
+[node name="Main" type="Node3D" unique_id=1420660784]
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1690824619]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
+fov = 60.0
+script = ExtResource("2_orbit")
+
+[node name="AudioVisualizer" type="Node3D" parent="." unique_id=879157685]
+script = ExtResource("1_visualizer")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=64137800]
+environment = SubResource("Environment_world")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=656736862]
+transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.433013, 0.75, 0, 5, 0)
+light_color = Color(0.9, 0.85, 1, 1)
+light_energy = 0.3
+shadow_enabled = true
