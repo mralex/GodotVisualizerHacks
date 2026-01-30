@@ -48,7 +48,7 @@ void fragment() {
 	float pulse = sin(time * 4.0) * 0.3 + 0.7;
 
 	ALBEDO = color * 0.4;
-	EMISSION = color * 2.0 + core_glow * fresnel * (1.0 + total * 2.0) * pulse;
+	EMISSION = color * 1.0 + core_glow * fresnel * (0.5 + total * 1.0) * pulse;
 	METALLIC = 0.2;
 	ROUGHNESS = 0.3;
 }

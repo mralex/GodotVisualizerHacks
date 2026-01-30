@@ -21,7 +21,7 @@ void fragment() {
 	vec3 glow_color = vec3(1.0, 0.3, 0.5);
 
 	ALBEDO = base_color * (0.5 + pulse * 0.5);
-	EMISSION = glow_color * fresnel * energy * 3.0 + base_color * energy * 0.5;
+	EMISSION = glow_color * fresnel * energy * 1.5 + base_color * energy * 0.3;
 	METALLIC = 0.3;
 	ROUGHNESS = 0.4 - energy * 0.2;
 }

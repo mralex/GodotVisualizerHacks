@@ -25,7 +25,7 @@ void fragment() {
 	float flicker = sin(time * 20.0) * 0.2 + 0.8;
 
 	ALBEDO = color * 0.3;
-	EMISSION = color * (sparkle * energy * 3.0 + fresnel * energy * 4.0) * flicker;
+	EMISSION = color * (sparkle * energy * 1.5 + fresnel * energy * 2.0) * flicker;
 	METALLIC = 0.0;
 	ROUGHNESS = 0.8;
 }

@@ -33,7 +33,7 @@ void fragment() {
 	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 3.0);
 
 	ALBEDO = color * (0.6 + flow * 0.4 * energy);
-	EMISSION = color * fresnel * energy * 2.0 + color * flow * energy * 0.8;
+	EMISSION = color * fresnel * energy * 1.0 + color * flow * energy * 0.4;
 	METALLIC = 0.7 + energy * 0.3;
 	ROUGHNESS = 0.2;
 }

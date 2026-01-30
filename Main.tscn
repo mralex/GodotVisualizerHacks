@@ -1,19 +1,23 @@
 [gd_scene format=3 uid="uid://dphot7csaccvb"]
 
 [ext_resource type="Script" uid="uid://dol3lop6r62v4" path="res://AudioVisualizer.gd" id="1_visualizer"]
-[ext_resource type="Script" path="res://OrbitCamera.gd" id="2_orbit"]
+[ext_resource type="Script" uid="uid://byh0kok53wjdj" path="res://OrbitCamera.gd" id="2_orbit"]
 
 [sub_resource type="Environment" id="Environment_world"]
 background_mode = 1
-background_color = Color(0.02, 0.02, 0.05, 1)
+background_color = Color(0.01, 0.01, 0.02, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.15, 0.1, 0.2, 1)
-ambient_light_energy = 0.5
+ambient_light_color = Color(0.15, 0.08, 0.2, 1)
+ambient_light_energy = 0.2
+tonemap_mode = 2
+tonemap_exposure = 0.9
 glow_enabled = true
-glow_intensity = 1.5
-glow_strength = 1.2
+glow_intensity = 1.2
+glow_strength = 0.8
 glow_bloom = 0.3
 glow_blend_mode = 0
+glow_hdr_scale = 1.5
+glow_hdr_luminance_cap = 8.0
 
 [node name="Main" type="Node3D" unique_id=1420660784]
 
@@ -24,6 +28,7 @@ script = ExtResource("2_orbit")
 
 [node name="AudioVisualizer" type="Node3D" parent="." unique_id=879157685]
 script = ExtResource("1_visualizer")
+smoothing = 1.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=64137800]
 environment = SubResource("Environment_world")
