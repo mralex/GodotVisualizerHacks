@@ -29,6 +29,9 @@ var gui_panel: PanelContainer
 var gui_visible: bool = false
 var gui_sliders: Dictionary = {}
 
+# Camera reference
+var orbit_camera: Node
+
 # Defaults
 const DEFAULT_SMOOTHING: float = 0.2
 const DEFAULT_INTENSITY: float = 1.5
@@ -38,6 +41,9 @@ const DEFAULT_MID_MIN: float = 250.0
 const DEFAULT_MID_MAX: float = 4000.0
 const DEFAULT_HIGH_MIN: float = 4000.0
 const DEFAULT_HIGH_MAX: float = 16000.0
+const DEFAULT_CAM_SPEED: float = 0.3
+const DEFAULT_CAM_RADIUS: float = 6.0
+const DEFAULT_CAM_HEIGHT: float = 3.0
 
 # Visual elements
 var crystal_shapes: Array[MeshInstance3D] = []
@@ -73,6 +79,10 @@ func _ready() -> void:
 	setup_background_shapes()
 	setup_abstract_visuals()
 	setup_post_processing()
+
+	# Get camera reference
+	orbit_camera = get_parent().get_node("Camera3D")
+
 	setup_gui()
 
 func setup_audio() -> void:
@@ -522,6 +532,22 @@ func setup_gui() -> void:
 	var sep2 = HSeparator.new()
 	vbox.add_child(sep2)
 
+	# Camera label
+	var cam_label = Label.new()
+	cam_label.text = "CAMERA"
+	cam_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	vbox.add_child(cam_label)
+
+	# Camera controls
+	if orbit_camera:
+		vbox.add_child(create_slider("cam_speed", "Speed", orbit_camera.orbit_speed, 0.0, 1.0, func(val): orbit_camera.orbit_speed = val))
+		vbox.add_child(create_slider("cam_radius", "Distance", orbit_camera.orbit_radius, 3.0, 15.0, func(val): orbit_camera.orbit_radius = val))
+		vbox.add_child(create_slider("cam_height", "Height", orbit_camera.orbit_height, 0.0, 8.0, func(val): orbit_camera.orbit_height = val))
+
+	# Separator
+	var sep3 = HSeparator.new()
+	vbox.add_child(sep3)
+
 	# Reset button
 	var reset_btn = Button.new()
 	reset_btn.text = "Reset to Defaults"
@@ -589,6 +615,12 @@ func reset_to_defaults() -> void:
 	high_min = DEFAULT_HIGH_MIN
 	high_max = DEFAULT_HIGH_MAX
 
+	# Reset camera
+	if orbit_camera:
+		orbit_camera.orbit_speed = DEFAULT_CAM_SPEED
+		orbit_camera.orbit_radius = DEFAULT_CAM_RADIUS
+		orbit_camera.orbit_height = DEFAULT_CAM_HEIGHT
+
 	# Update sliders
 	var defaults = {
 		"smoothing": DEFAULT_SMOOTHING,
@@ -598,14 +630,18 @@ func reset_to_defaults() -> void:
 		"mid_min": DEFAULT_MID_MIN,
 		"mid_max": DEFAULT_MID_MAX,
 		"high_min": DEFAULT_HIGH_MIN,
-		"high_max": DEFAULT_HIGH_MAX
+		"high_max": DEFAULT_HIGH_MAX,
+		"cam_speed": DEFAULT_CAM_SPEED,
+		"cam_radius": DEFAULT_CAM_RADIUS,
+		"cam_height": DEFAULT_CAM_HEIGHT
 	}
 
 	for key in gui_sliders:
 		var data = gui_sliders[key]
-		var val = defaults[key]
-		data["slider"].value = val
-		data["label"].text = "%.2f" % val if data["max"] <= 5.0 else "%.0f" % val
+		if defaults.has(key):
+			var val = defaults[key]
+			data["slider"].value = val
+			data["label"].text = "%.2f" % val if data["max"] <= 5.0 else "%.0f" % val
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
@@ -642,31 +678,43 @@ func update_abstract_visuals(delta: float) -> void:
 		var crystal = crystal_shapes[i]
 		var mat = crystal.material_override as ShaderMaterial
 
-		# Organic floating motion
-		var phase = float(i) * 0.7 + time
-		var float_y = sin(phase * 0.8) * 0.3 + cos(phase * 0.5) * 0.2
-		var float_x = cos(phase * 0.6) * 0.15
-		var float_z = sin(phase * 0.7) * 0.15
+		# Each crystal has unique motion patterns
+		var id = float(i)
+		var phase = id * 0.7 + time
 
+		# Wandering motion - always active, not just on bass
+		var wander_x = sin(phase * 0.3 + id * 1.1) * 0.4 + cos(phase * 0.2 + id * 0.7) * 0.3
+		var wander_y = sin(phase * 0.25 + id * 0.9) * 0.5 + cos(phase * 0.35 + id * 1.3) * 0.3
+		var wander_z = cos(phase * 0.28 + id * 0.8) * 0.4 + sin(phase * 0.22 + id * 1.2) * 0.3
+
+		# Slow orbit around center
 		var golden_angle = PI * (3.0 - sqrt(5.0))
-		var theta = golden_angle * i + time * 0.2
-		var base_radius = 2.0 + sqrt(float(i)) * 0.5 + bass_energy * 0.8
-		var base_height = sin(float(i) * 0.5 + time * 0.3) * (1.5 + bass_energy)
+		var base_theta = golden_angle * i
+		var orbit_speed = 0.15 + sin(id * 0.5) * 0.05  # Varying orbit speeds
+		var theta = base_theta + time * orbit_speed
+
+		# Base radius varies over time too
+		var base_radius = 2.0 + sqrt(id) * 0.5
+		var radius_wobble = sin(phase * 0.4) * 0.3
+		var radius = base_radius + radius_wobble + bass_energy * 0.5
+
+		# Height oscillates independently
+		var base_height = sin(id * 0.5 + time * 0.2) * 1.2 + cos(id * 0.3 + time * 0.15) * 0.8
 
 		crystal.position = Vector3(
-			cos(theta) * base_radius + float_x * bass_energy,
-			base_height + float_y * bass_energy,
-			sin(theta) * base_radius + float_z * bass_energy
+			cos(theta) * radius + wander_x,
+			base_height + wander_y + bass_energy * 0.3,
+			sin(theta) * radius + wander_z
 		)
 
-		# Tumbling rotation
-		crystal.rotation.x += delta * (0.5 + bass_energy * 2.0)
-		crystal.rotation.y += delta * (0.3 + bass_energy * 1.5)
-		crystal.rotation.z += delta * 0.2
+		# Tumbling rotation - continuous
+		crystal.rotation.x += delta * (0.4 + sin(id) * 0.2 + bass_energy * 1.5)
+		crystal.rotation.y += delta * (0.3 + cos(id * 0.7) * 0.15 + bass_energy * 1.0)
+		crystal.rotation.z += delta * (0.2 + sin(id * 1.3) * 0.1)
 
 		# Scale pulse
-		var scale_base = 0.6 + bass_energy * 0.8
-		var scale_pulse = sin(time * 4.0 + i * 0.5) * 0.1 * bass_energy
+		var scale_base = 0.5 + bass_energy * 0.6
+		var scale_pulse = sin(time * 3.0 + i * 0.5) * 0.08
 		crystal.scale = Vector3.ONE * (scale_base + scale_pulse)
 
 		mat.set_shader_parameter("energy", bass_energy)
