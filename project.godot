@@ -20,6 +20,11 @@ config/icon="res://icon.svg"
 buses/default_bus_layout="uid://bct4lbrs4jp0u"
 driver/enable_input=true
 
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

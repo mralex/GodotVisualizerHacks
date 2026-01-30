@@ -73,6 +73,22 @@ var post_process_material: ShaderMaterial
 var canvas_layer: CanvasLayer
 var post_process_rect: ColorRect
 
+# Hacker overlay
+var hacker_layer: CanvasLayer
+var hacker_container: Control
+var glitch_rects: Array[ColorRect] = []
+var hacker_material: ShaderMaterial
+var hex_lines: Array[Label] = []
+var hex_buffer: String = ""
+var hex_offset: float = 0.0
+var hacker_enabled: bool = true
+
+# 3D hex display
+var hex_viewport: SubViewport
+var hex_plane: MeshInstance3D
+var hex_plane_material: StandardMaterial3D
+var hex_scroll_offset: float = 0.0
+
 var time: float = 0.0
 
 func _ready() -> void:
@@ -82,6 +98,7 @@ func _ready() -> void:
 	setup_background_shapes()
 	setup_abstract_visuals()
 	setup_post_processing()
+	setup_hacker_overlay()
 
 	# Get camera reference
 	orbit_camera = get_parent().get_node("Camera3D")
@@ -475,6 +492,345 @@ func setup_post_processing() -> void:
 	post_process_rect.material = post_process_material
 	canvas_layer.add_child(post_process_rect)
 
+func setup_hacker_overlay() -> void:
+	hacker_layer = CanvasLayer.new()
+	hacker_layer.layer = 15
+	add_child(hacker_layer)
+
+	hacker_container = Control.new()
+	hacker_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var viewport_size = get_viewport().get_visible_rect().size
+	hacker_container.size = viewport_size
+	hacker_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hacker_layer.add_child(hacker_container)
+
+	print("Viewport size: ", viewport_size, " hacker_container size: ", hacker_container.size)
+
+	# Scanline overlay shader
+	var scanline_rect = ColorRect.new()
+	scanline_rect.anchors_preset = Control.PRESET_FULL_RECT
+	scanline_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	hacker_material = ShaderMaterial.new()
+	hacker_material.shader = Shader.new()
+	hacker_material.shader.code = """
+shader_type canvas_item;
+
+uniform float time = 0.0;
+uniform float glitch_intensity = 0.0;
+uniform float scanline_alpha = 0.15;
+
+void fragment() {
+	vec2 uv = UV;
+
+	// Scanlines
+	float scanline = sin(uv.y * 800.0) * 0.5 + 0.5;
+	scanline = pow(scanline, 1.5) * scanline_alpha;
+
+	// Horizontal glitch displacement
+	float glitch_line = step(0.99 - glitch_intensity * 0.1, fract(sin(floor(uv.y * 50.0 + time * 20.0) * 91.3458) * 47453.5453));
+	float displacement = (fract(sin(time * 100.0 + uv.y * 50.0) * 43758.5453) - 0.5) * glitch_intensity * glitch_line * 0.1;
+
+	// Noise
+	float noise = fract(sin(dot(uv + time * 0.1, vec2(12.9898, 78.233))) * 43758.5453);
+	noise = noise * 0.03 * glitch_intensity;
+
+	// Vignette
+	float vignette = 1.0 - length(uv - 0.5) * 0.5;
+
+	// Flicker
+	float flicker = 1.0 - fract(sin(time * 15.0) * 43758.5453) * 0.02 * glitch_intensity;
+
+	// CRT curvature hint (subtle color at edges)
+	float edge_glow = smoothstep(0.4, 0.5, abs(uv.x - 0.5)) + smoothstep(0.4, 0.5, abs(uv.y - 0.5));
+	vec3 edge_color = vec3(0.0, 0.3, 0.1) * edge_glow * 0.3;
+
+	COLOR = vec4(edge_color + vec3(0.0, noise, noise * 0.5), scanline + noise);
+}
+"""
+	scanline_rect.material = hacker_material
+	hacker_container.add_child(scanline_rect)
+
+	var screen_size = viewport_size  # Use the already-captured viewport size
+
+	# Font for hacker elements
+	var hacker_font = SystemFont.new()
+	hacker_font.font_names = PackedStringArray(["Courier New", "Consolas", "monospace"])
+
+	# Initialize hex buffer with lots of data
+	for i in range(500):
+		hex_buffer += "0123456789ABCDEF"[randi() % 16]
+
+	# Create 3D hex display using SubViewport
+	setup_3d_hex_display(hacker_font)
+
+	print("Hacker overlay setup complete. hex_lines count: ", hex_lines.size())
+
+	# Corner brackets / frame elements - top left
+	var tl1 = Label.new()
+	tl1.add_theme_font_override("font", hacker_font)
+	tl1.add_theme_font_size_override("font_size", 12)
+	tl1.add_theme_color_override("font_color", Color(0.0, 0.9, 0.3, 0.5))
+	tl1.text = "╔══════════════"
+	tl1.position = Vector2(10, 10)
+	tl1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hacker_container.add_child(tl1)
+
+	var tl2 = Label.new()
+	tl2.add_theme_font_override("font", hacker_font)
+	tl2.add_theme_font_size_override("font_size", 12)
+	tl2.add_theme_color_override("font_color", Color(0.0, 0.9, 0.3, 0.5))
+	tl2.text = "║ VISUALIZER"
+	tl2.position = Vector2(10, 28)
+	tl2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hacker_container.add_child(tl2)
+
+	# Top right
+	var tr1 = Label.new()
+	tr1.add_theme_font_override("font", hacker_font)
+	tr1.add_theme_font_size_override("font_size", 12)
+	tr1.add_theme_color_override("font_color", Color(0.0, 0.9, 0.3, 0.5))
+	tr1.text = "══════════════╗"
+	tr1.anchor_left = 1.0
+	tr1.anchor_right = 1.0
+	tr1.offset_left = -160
+	tr1.offset_top = 10
+	tr1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hacker_container.add_child(tr1)
+
+	var tr2 = Label.new()
+	tr2.add_theme_font_override("font", hacker_font)
+	tr2.add_theme_font_size_override("font_size", 12)
+	tr2.add_theme_color_override("font_color", Color(0.0, 0.9, 0.3, 0.5))
+	tr2.text = "AUDIO_SYS ║"
+	tr2.anchor_left = 1.0
+	tr2.anchor_right = 1.0
+	tr2.offset_left = -110
+	tr2.offset_top = 28
+	tr2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hacker_container.add_child(tr2)
+
+	# Bottom left
+	var bl1 = Label.new()
+	bl1.add_theme_font_override("font", hacker_font)
+	bl1.add_theme_font_size_override("font_size", 12)
+	bl1.add_theme_color_override("font_color", Color(0.0, 0.9, 0.3, 0.5))
+	bl1.text = "╚══════════════"
+	bl1.anchor_top = 1.0
+	bl1.anchor_bottom = 1.0
+	bl1.offset_left = 10
+	bl1.offset_top = -100
+	bl1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hacker_container.add_child(bl1)
+
+	# Bottom right
+	var br1 = Label.new()
+	br1.add_theme_font_override("font", hacker_font)
+	br1.add_theme_font_size_override("font_size", 12)
+	br1.add_theme_color_override("font_color", Color(0.0, 0.9, 0.3, 0.5))
+	br1.text = "══════════════╝"
+	br1.anchor_left = 1.0
+	br1.anchor_right = 1.0
+	br1.anchor_top = 1.0
+	br1.anchor_bottom = 1.0
+	br1.offset_left = -160
+	br1.offset_top = -100
+	br1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hacker_container.add_child(br1)
+
+	# Glitch rectangles (randomly appearing)
+	for i in range(5):
+		var glitch_rect = ColorRect.new()
+		glitch_rect.color = Color(0.0, 1.0, 0.3, 0.0)
+		glitch_rect.size = Vector2(randi_range(100, 400), randi_range(2, 6))
+		glitch_rect.position = Vector2(randf() * 1920, randf() * 1080)
+		glitch_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hacker_container.add_child(glitch_rect)
+		glitch_rects.append(glitch_rect)
+
+func setup_3d_hex_display(font: Font) -> void:
+	# Create SubViewport to render hex text
+	hex_viewport = SubViewport.new()
+	hex_viewport.size = Vector2i(1024, 512)  # Taller viewport for more lines
+	hex_viewport.transparent_bg = true
+	hex_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(hex_viewport)
+
+	# Container for hex text inside viewport - no border, transparent
+	var hex_container = PanelContainer.new()
+	hex_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.0, 0.02, 0.0, 0.4)
+	panel_style.set_border_width_all(0)  # No border
+	panel_style.set_content_margin_all(8)
+	hex_container.add_theme_stylebox_override("panel", panel_style)
+	hex_viewport.add_child(hex_container)
+
+	var hex_vbox = VBoxContainer.new()
+	hex_vbox.add_theme_constant_override("separation", 0)
+	hex_container.add_child(hex_vbox)
+
+	# Create 18 lines of hex text
+	for row in range(18):
+		var hex_line = Label.new()
+		hex_line.add_theme_font_override("font", font)
+		hex_line.add_theme_font_size_override("font_size", 14)
+		# Gradient of greens, brighter in middle
+		var brightness = 1.0 - abs(row - 9) * 0.05
+		var hex_color = Color(0.0, brightness, brightness * 0.4, brightness * 0.9)
+		hex_line.add_theme_color_override("font_color", hex_color)
+		hex_line.text = "%04X: " % (row * 0x100) + "██ INIT ██"
+		hex_line.clip_text = true
+		hex_vbox.add_child(hex_line)
+		hex_lines.append(hex_line)
+
+	# Create 3D plane to display the viewport texture
+	hex_plane = MeshInstance3D.new()
+	var plane_mesh = PlaneMesh.new()
+	plane_mesh.size = Vector2(5, 4)  # Narrower to fit text
+	plane_mesh.orientation = PlaneMesh.FACE_Z
+	hex_plane.mesh = plane_mesh
+
+	# Material with viewport texture - more transparent
+	hex_plane_material = StandardMaterial3D.new()
+	hex_plane_material.albedo_texture = hex_viewport.get_texture()
+	hex_plane_material.albedo_color = Color(1, 1, 1, 0.6)  # More transparent
+	hex_plane_material.emission_enabled = true
+	hex_plane_material.emission = Color(0.0, 0.4, 0.15)
+	hex_plane_material.emission_energy_multiplier = 0.5
+	hex_plane_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	hex_plane_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	hex_plane_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	hex_plane.material_override = hex_plane_material
+
+	# Position the plane in 3D space - in front and below the visualizer
+	hex_plane.position = Vector3(0, -1.0, 3.0)
+	hex_plane.rotation_degrees = Vector3(-15, 0, 0)  # Tilt towards camera
+	add_child(hex_plane)
+
+	print("3D hex display created at ", hex_plane.position)
+
+func update_hacker_overlay(delta: float) -> void:
+	if not hacker_enabled:
+		hacker_container.visible = false
+		return
+	hacker_container.visible = true
+
+	if hex_lines.size() == 0:
+		print("WARNING: hex_lines is empty!")
+		return
+
+	# Update shader
+	hacker_material.set_shader_parameter("time", time)
+	hacker_material.set_shader_parameter("glitch_intensity", bass_energy)
+
+	# Animate glitch rectangles
+	for rect in glitch_rects:
+		if randf() < 0.02 + bass_energy * 0.1:
+			rect.color.a = randf() * 0.3 * bass_energy
+			rect.position = Vector2(randf() * 1920, randf() * 1080)
+			rect.size.x = randi_range(50, 300)
+		else:
+			rect.color.a *= 0.9
+
+	# Update hex display - continuous scrolling stream
+	var scroll_speed = 150.0 + bass_energy * 400.0 + mid_energy * 200.0
+	hex_offset += delta * scroll_speed
+
+	# Inject new random chars and shift buffer rapidly
+	while hex_offset >= 1.0:
+		hex_offset -= 1.0
+		var char_set = "0123456789ABCDEF"
+		if bass_energy > 0.4 and randf() < 0.4:
+			char_set = "████▓▓▒▒░░"
+		elif mid_energy > 0.3 and randf() < 0.3:
+			char_set = "<!@#$%^&*>{}[]|\\/"
+		elif high_energy > 0.3 and randf() < 0.2:
+			char_set = "◀▶▲▼●○■□"
+		hex_buffer = hex_buffer.substr(1) + char_set[randi() % char_set.length()]
+
+	# Vertical scroll - speed varies with audio
+	var vert_scroll_speed = 20.0 + bass_energy * 40.0 + mid_energy * 20.0
+	hex_scroll_offset += delta * vert_scroll_speed
+
+	# Build each line with scrolling vertical offset
+	var num_lines = hex_lines.size()
+	for row in range(num_lines):
+		# Virtual row shifts with scroll offset for vertical scrolling effect
+		var virtual_row = (row + int(hex_scroll_offset)) % 256
+		var line_offset = int(hex_offset * 5 + virtual_row * 37) % hex_buffer.length()
+		var display_len = 48  # Shorter lines to fit in viewport
+
+		var line_str = ""
+
+		# Address prefix - scrolls with virtual row
+		var addr_val = (virtual_row * 0x100) % 0xFFFF
+		line_str += "%04X: " % addr_val
+
+		# Hex content
+		for i in range(display_len):
+			var idx = (line_offset + i) % hex_buffer.length()
+			line_str += hex_buffer[idx]
+			if i % 4 == 3:
+				line_str += " "
+			if i % 16 == 15:
+				line_str += "│"
+
+		# Rotating status suffixes based on virtual row
+		var status_type = virtual_row % 8
+		if status_type == 0:
+			line_str += " ◀ ACTIVE ▶"
+		elif status_type == 1:
+			line_str += " B:%0.2f" % bass_energy
+		elif status_type == 2:
+			line_str += " M:%0.2f" % mid_energy
+		elif status_type == 3:
+			line_str += " H:%0.2f" % high_energy
+		elif status_type == 4:
+			line_str += " PKT:%05d" % (virtual_row * 127 % 99999)
+		elif status_type == 5:
+			line_str += " ░ SCAN ░"
+		elif status_type == 6:
+			line_str += " MEM:%04X" % ((virtual_row * 0x137) % 0xFFFF)
+		elif status_type == 7:
+			line_str += " ▓ SYNC ▓"
+
+		hex_lines[row].text = line_str
+
+		# Glitch individual lines on bass hits
+		if bass_energy > 0.6 and randf() < 0.06:
+			var glitch_chars = "█▓▒░╔╗╚╝║═◄►"
+			var glitch_line = ""
+			for i in range(120):
+				glitch_line += glitch_chars[randi() % glitch_chars.length()]
+			hex_lines[row].text = glitch_line
+			hex_lines[row].add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.9))
+		else:
+			# Fade color back to gradient based on row position
+			var brightness = 1.0 - abs(row - num_lines / 2.0) * (0.08 / (num_lines / 12.0))
+			var target_color = Color(0.0, brightness, brightness * 0.4, brightness * 0.85)
+			var current = hex_lines[row].get_theme_color("font_color")
+			hex_lines[row].add_theme_color_override("font_color", current.lerp(target_color, delta * 6.0))
+
+	# Animate 3D hex plane with more dynamic movement
+	if hex_plane:
+		# Floating motion - multiple sine waves for organic feel
+		hex_plane.position.x = sin(time * 0.4) * 0.4 + cos(time * 0.7) * 0.2 + mid_energy * 0.3
+		hex_plane.position.y = -1.0 + sin(time * 0.5) * 0.2 + cos(time * 0.3) * 0.15 + bass_energy * 0.3
+		hex_plane.position.z = 3.0 + sin(time * 0.6) * 0.3 + high_energy * 0.2
+
+		# More dramatic tilting based on audio
+		hex_plane.rotation_degrees.x = -15 + sin(time * 0.35) * 6 + mid_energy * 10
+		hex_plane.rotation_degrees.y = sin(time * 0.25) * 5 + cos(time * 0.45) * 4
+		hex_plane.rotation_degrees.z = sin(time * 0.55) * 4 + bass_energy * 8
+
+		# Emission glow pulses with bass
+		if hex_plane_material:
+			hex_plane_material.emission_energy_multiplier = 0.3 + bass_energy * 2.5 + high_energy * 0.8
+			# Vary transparency slightly with audio
+			var alpha = 0.45 + bass_energy * 0.25
+			hex_plane_material.albedo_color = Color(1, 1, 1, alpha)
+
 func setup_gui() -> void:
 	gui_layer = CanvasLayer.new()
 	gui_layer.layer = 20
@@ -593,6 +949,34 @@ func setup_gui() -> void:
 	var sep3 = HSeparator.new()
 	vbox.add_child(sep3)
 
+	# Overlay label
+	var overlay_label = Label.new()
+	overlay_label.text = "OVERLAY"
+	overlay_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	vbox.add_child(overlay_label)
+
+	# Hacker overlay toggle
+	var hacker_hbox = HBoxContainer.new()
+	hacker_hbox.add_theme_constant_override("separation", 10)
+
+	var hacker_label = Label.new()
+	hacker_label.text = "Hacker FX"
+	hacker_label.custom_minimum_size.x = 80
+	hacker_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	hacker_hbox.add_child(hacker_label)
+
+	var hacker_check = CheckBox.new()
+	hacker_check.button_pressed = hacker_enabled
+	hacker_check.add_theme_color_override("font_color", Color(0.9, 0.5, 0.2))
+	hacker_check.toggled.connect(func(toggled): hacker_enabled = toggled)
+	hacker_hbox.add_child(hacker_check)
+
+	vbox.add_child(hacker_hbox)
+
+	# Separator
+	var sep4 = HSeparator.new()
+	vbox.add_child(sep4)
+
 	# Reset button
 	var reset_btn = Button.new()
 	reset_btn.text = "Reset to Defaults"
@@ -697,6 +1081,7 @@ func _process(delta: float) -> void:
 	time += delta
 	analyze_spectrum()
 	update_abstract_visuals(delta)
+	update_hacker_overlay(delta)
 	update_shader_params()
 
 func analyze_spectrum() -> void:
