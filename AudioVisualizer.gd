@@ -32,6 +32,9 @@ var gui_sliders: Dictionary = {}
 # Camera reference
 var orbit_camera: Node
 
+# Audio input
+var audio_input_dropdown: OptionButton
+
 # Defaults
 const DEFAULT_SMOOTHING: float = 0.2
 const DEFAULT_INTENSITY: float = 1.5
@@ -499,6 +502,48 @@ func setup_gui() -> void:
 	title.text = "VISUALIZER SETTINGS"
 	title.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 	vbox.add_child(title)
+
+	# Audio input selector
+	var audio_hbox = HBoxContainer.new()
+	audio_hbox.add_theme_constant_override("separation", 10)
+
+	var audio_label = Label.new()
+	audio_label.text = "Audio In"
+	audio_label.custom_minimum_size.x = 80
+	audio_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	audio_hbox.add_child(audio_label)
+
+	audio_input_dropdown = OptionButton.new()
+	audio_input_dropdown.custom_minimum_size.x = 200
+	var dropdown_style = StyleBoxFlat.new()
+	dropdown_style.bg_color = Color(0.2, 0.2, 0.22)
+	dropdown_style.set_corner_radius_all(3)
+	dropdown_style.set_content_margin_all(5)
+	audio_input_dropdown.add_theme_stylebox_override("normal", dropdown_style)
+	audio_input_dropdown.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+
+	# Populate with available input devices
+	var input_devices = AudioServer.get_input_device_list()
+	var current_device = AudioServer.input_device
+	var current_idx = 0
+	for i in range(input_devices.size()):
+		audio_input_dropdown.add_item(input_devices[i], i)
+		if input_devices[i] == current_device:
+			current_idx = i
+	audio_input_dropdown.selected = current_idx
+
+	audio_input_dropdown.item_selected.connect(func(idx):
+		var devices = AudioServer.get_input_device_list()
+		if idx < devices.size():
+			AudioServer.input_device = devices[idx]
+	)
+
+	audio_hbox.add_child(audio_input_dropdown)
+	vbox.add_child(audio_hbox)
+
+	# Separator
+	var sep0 = HSeparator.new()
+	vbox.add_child(sep0)
 
 	# Smoothing slider
 	vbox.add_child(create_slider("smoothing", "Smoothing", smoothing, 0.01, 1.0, func(val): smoothing = val))
