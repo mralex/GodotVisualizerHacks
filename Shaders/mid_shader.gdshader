@@ -11,7 +11,7 @@ void fragment() {
 	float hue = fract(hue_shift * 0.1 + UV.x * 0.2);
 
 	// HSV to RGB conversion
-	vec3 color;
+	vec3 color = vec3(0.0);
 	float h = hue * 6.0;
 	float c = 0.8;
 	float x = c * (1.0 - abs(mod(h, 2.0) - 1.0));

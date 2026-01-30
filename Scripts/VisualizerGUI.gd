@@ -59,6 +59,7 @@ func setup(parent: Node, p_audio_analyzer: AudioAnalyzer, p_orbit_camera: Node, 
 	# Audio sliders
 	vbox.add_child(create_slider("smoothing", "Smoothing", audio_analyzer.smoothing, 0.01, 1.0, func(val): audio_analyzer.smoothing = val))
 	vbox.add_child(create_slider("intensity", "Intensity", audio_analyzer.intensity, 0.1, 5.0, func(val): audio_analyzer.intensity = val))
+	vbox.add_child(create_slider("loudness_mod", "Loudness Mod", audio_analyzer.loudness_modulation, 0.0, 2.0, func(val): audio_analyzer.loudness_modulation = val))
 
 	vbox.add_child(HSeparator.new())
 
@@ -219,6 +220,7 @@ func reset_to_defaults() -> void:
 	var defaults = {
 		"smoothing": AudioAnalyzer.DEFAULT_SMOOTHING,
 		"intensity": AudioAnalyzer.DEFAULT_INTENSITY,
+		"loudness_mod": AudioAnalyzer.DEFAULT_LOUDNESS_MODULATION,
 		"bass_min": AudioAnalyzer.DEFAULT_BASS_MIN,
 		"bass_max": AudioAnalyzer.DEFAULT_BASS_MAX,
 		"mid_min": AudioAnalyzer.DEFAULT_MID_MIN,

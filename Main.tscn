@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dphot7csaccvb"]
 
-[ext_resource type="Script" uid="uid://dol3lop6r62v4" path="res://Scripts/AudioVisualizer.gd" id="1_visualizer"]
-[ext_resource type="Script" uid="uid://byh0kok53wjdj" path="res://Scripts/OrbitCamera.gd" id="2_orbit"]
+[ext_resource type="Script" uid="uid://cwtm0hsbglbka" path="res://Scripts/AudioVisualizer.gd" id="1_visualizer"]
+[ext_resource type="Script" uid="uid://1di8h2f5hmwb" path="res://Scripts/OrbitCamera.gd" id="2_orbit"]
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributes_dof"]
 dof_blur_far_enabled = true
@@ -41,7 +41,6 @@ script = ExtResource("2_orbit")
 
 [node name="AudioVisualizer" type="Node3D" parent="." unique_id=879157685]
 script = ExtResource("1_visualizer")
-intensity = 2.4
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=64137800]
 environment = SubResource("Environment_world")

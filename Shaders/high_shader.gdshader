@@ -16,7 +16,7 @@ void fragment() {
 	float sparkle1 = sin(UV.x * 30.0 + time * 10.0) * sin(UV.y * 30.0 + time * 8.0);
 	float sparkle2 = sin(UV.x * 20.0 - time * 12.0) * sin(UV.y * 25.0 - time * 9.0);
 	float sparkle = max(sparkle1, sparkle2) * 0.5 + 0.5;
-	sparkle = pow(sparkle, 4.0 - energy * 2.0);
+	sparkle = pow(max(sparkle, 0.0), 4.0 - energy * 2.0);
 
 	// Strong fresnel for glowing edge
 	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);

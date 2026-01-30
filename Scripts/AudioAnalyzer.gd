@@ -13,9 +13,11 @@ var bass_energy: float = 0.0
 var mid_energy: float = 0.0
 var high_energy: float = 0.0
 var total_energy: float = 0.0
+var loudness: float = 0.0
 
 @export var smoothing: float = 0.2
 @export var intensity: float = 1.5
+@export var loudness_modulation: float = 0.0  # How much loudness affects intensity
 
 # FFT frequency ranges (Hz)
 var bass_min: float = 20.0
@@ -28,6 +30,7 @@ var high_max: float = 16000.0
 # Defaults
 const DEFAULT_SMOOTHING: float = 0.2
 const DEFAULT_INTENSITY: float = 1.5
+const DEFAULT_LOUDNESS_MODULATION: float = 0.0
 const DEFAULT_BASS_MIN: float = 20.0
 const DEFAULT_BASS_MAX: float = 250.0
 const DEFAULT_MID_MIN: float = 250.0
@@ -55,7 +58,7 @@ func setup_audio() -> void:
 	if effect_idx == -1:
 		var analyzer = AudioEffectSpectrumAnalyzer.new()
 		analyzer.buffer_length = 0.1
-		analyzer.fft_size = AudioEffectSpectrumAnalyzer.FFT_SIZE_2048
+		analyzer.fft_size = AudioEffectSpectrumAnalyzer.FFT_SIZE_256
 		AudioServer.add_bus_effect(bus_idx, analyzer)
 		effect_idx = AudioServer.get_bus_effect_count(bus_idx) - 1
 
@@ -75,9 +78,16 @@ func analyze() -> void:
 	var mid_raw = get_frequency_range_energy(mid_min, mid_max)
 	var high_raw = get_frequency_range_energy(high_min, high_max)
 
-	bass_energy = lerp(bass_energy, bass_raw * intensity, smoothing)
-	mid_energy = lerp(mid_energy, mid_raw * intensity, smoothing)
-	high_energy = lerp(high_energy, high_raw * intensity, smoothing)
+	# Simple loudness: RMS of raw energies
+	var raw_loudness = sqrt((bass_raw * bass_raw + mid_raw * mid_raw + high_raw * high_raw) / 3.0)
+	loudness = lerp(loudness, raw_loudness, smoothing)
+
+	# Apply loudness modulation to intensity (additive on top of base)
+	var effective_intensity = intensity + loudness * loudness_modulation
+
+	bass_energy = lerp(bass_energy, bass_raw * effective_intensity, smoothing)
+	mid_energy = lerp(mid_energy, mid_raw * effective_intensity, smoothing)
+	high_energy = lerp(high_energy, high_raw * effective_intensity, smoothing)
 	total_energy = (bass_energy + mid_energy + high_energy) / 3.0
 
 	energy_updated.emit(bass_energy, mid_energy, high_energy, total_energy)
@@ -90,6 +100,7 @@ func get_frequency_range_energy(from_hz: float, to_hz: float) -> float:
 func reset_to_defaults() -> void:
 	smoothing = DEFAULT_SMOOTHING
 	intensity = DEFAULT_INTENSITY
+	loudness_modulation = DEFAULT_LOUDNESS_MODULATION
 	bass_min = DEFAULT_BASS_MIN
 	bass_max = DEFAULT_BASS_MAX
 	mid_min = DEFAULT_MID_MIN

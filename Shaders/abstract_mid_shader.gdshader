@@ -8,8 +8,8 @@ void vertex() {
 	vec3 pos = VERTEX;
 
 	// Spiral deformation
-	float angle = atan(pos.x, pos.z);
 	float dist = length(pos.xz);
+	float angle = atan(pos.x, pos.z + 0.0001); // Prevent atan(0,0) undefined behavior
 	float spiral = angle + dist * (2.0 + energy * 3.0) + time * 2.0;
 
 	pos.x = cos(spiral) * dist;
