@@ -20,6 +20,7 @@ var crystal_shapes: Array[MeshInstance3D] = []
 var ribbons: Array[MeshInstance3D] = []
 var particles: Array[MeshInstance3D] = []
 var sparks: Array[MeshInstance3D] = []
+var bg_shapes: Array[MeshInstance3D] = []
 var center_form: MeshInstance3D
 var background_sphere: MeshInstance3D
 var orbit_rings: Array[MeshInstance3D] = []
@@ -30,6 +31,7 @@ var mid_material: ShaderMaterial
 var high_material: ShaderMaterial
 var ribbon_material: ShaderMaterial
 var spark_material: ShaderMaterial
+var bg_shape_material: ShaderMaterial
 var orb_material: ShaderMaterial
 var background_material: ShaderMaterial
 var post_process_material: ShaderMaterial
@@ -44,6 +46,7 @@ func _ready() -> void:
 	setup_audio()
 	setup_materials()
 	setup_background()
+	setup_background_shapes()
 	setup_abstract_visuals()
 	setup_post_processing()
 
@@ -92,6 +95,9 @@ func setup_materials() -> void:
 	spark_material = ShaderMaterial.new()
 	spark_material.shader = preload("res://spark_shader.gdshader")
 
+	bg_shape_material = ShaderMaterial.new()
+	bg_shape_material.shader = preload("res://background_shape_shader.gdshader")
+
 	orb_material = ShaderMaterial.new()
 	orb_material.shader = preload("res://orb_shader.gdshader")
 
@@ -111,6 +117,81 @@ func setup_background() -> void:
 	background_sphere.mesh = bg_mesh
 	background_sphere.material_override = background_material
 	add_child(background_sphere)
+
+func setup_background_shapes() -> void:
+	# Distant floating slabs
+	for i in range(8):
+		var slab = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(randf_range(1.5, 4.0), randf_range(0.1, 0.3), randf_range(1.0, 3.0))
+		slab.mesh = box
+		var mat = bg_shape_material.duplicate() as ShaderMaterial
+		mat.set_shader_parameter("shape_id", float(i))
+		slab.material_override = mat
+
+		var angle = float(i) / 8.0 * TAU + randf() * 0.5
+		var dist = randf_range(12.0, 20.0)
+		var height = randf_range(-4.0, 4.0)
+		slab.position = Vector3(cos(angle) * dist, height, sin(angle) * dist)
+		slab.rotation = Vector3(randf() * 0.3, randf() * TAU, randf() * 0.2)
+
+		add_child(slab)
+		bg_shapes.append(slab)
+
+	# Tall pillars/monoliths
+	for i in range(6):
+		var pillar = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(randf_range(0.3, 0.8), randf_range(3.0, 8.0), randf_range(0.3, 0.8))
+		pillar.mesh = box
+		var mat = bg_shape_material.duplicate() as ShaderMaterial
+		mat.set_shader_parameter("shape_id", float(i + 10))
+		pillar.material_override = mat
+
+		var angle = float(i) / 6.0 * TAU + 0.3
+		var dist = randf_range(10.0, 16.0)
+		pillar.position = Vector3(cos(angle) * dist, randf_range(-2.0, 2.0), sin(angle) * dist)
+		pillar.rotation = Vector3(randf() * 0.15, randf() * TAU, randf() * 0.15)
+
+		add_child(pillar)
+		bg_shapes.append(pillar)
+
+	# Floating debris/fragments
+	for i in range(15):
+		var debris = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(randf_range(0.2, 0.8), randf_range(0.2, 0.8), randf_range(0.2, 0.8))
+		debris.mesh = box
+		var mat = bg_shape_material.duplicate() as ShaderMaterial
+		mat.set_shader_parameter("shape_id", float(i + 20))
+		debris.material_override = mat
+
+		var angle = randf() * TAU
+		var dist = randf_range(8.0, 18.0)
+		var height = randf_range(-5.0, 5.0)
+		debris.position = Vector3(cos(angle) * dist, height, sin(angle) * dist)
+		debris.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
+
+		add_child(debris)
+		bg_shapes.append(debris)
+
+	# Large distant planes
+	for i in range(4):
+		var plane_shape = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(randf_range(5.0, 10.0), randf_range(0.05, 0.1), randf_range(5.0, 10.0))
+		plane_shape.mesh = box
+		var mat = bg_shape_material.duplicate() as ShaderMaterial
+		mat.set_shader_parameter("shape_id", float(i + 40))
+		plane_shape.material_override = mat
+
+		var angle = float(i) / 4.0 * TAU + 0.7
+		var dist = randf_range(18.0, 28.0)
+		plane_shape.position = Vector3(cos(angle) * dist, randf_range(-6.0, 6.0), sin(angle) * dist)
+		plane_shape.rotation = Vector3(randf() * 0.4 - 0.2, randf() * TAU, randf() * 0.4 - 0.2)
+
+		add_child(plane_shape)
+		bg_shapes.append(plane_shape)
 
 func create_crystal_mesh() -> ArrayMesh:
 	# Create an elongated octahedron / crystal shape
@@ -497,6 +578,22 @@ func update_abstract_visuals(delta: float) -> void:
 	center_form.scale = Vector3.ONE * (orb_scale + orb_pulse)
 	center_form.rotation.y = time * 0.8
 	center_form.rotation.x = sin(time * 0.4) * 0.3
+
+	# Animate background shapes (slow, subtle)
+	for i in range(bg_shapes.size()):
+		var shape = bg_shapes[i]
+		var mat = shape.material_override as ShaderMaterial
+
+		# Very slow rotation
+		shape.rotation.x += delta * 0.02 * (1.0 + sin(float(i)) * 0.5)
+		shape.rotation.y += delta * 0.03 * (1.0 + cos(float(i) * 0.7) * 0.5)
+
+		# Subtle drift
+		var drift = sin(time * 0.1 + float(i) * 0.3) * 0.1
+		shape.position.y += drift * delta
+
+		mat.set_shader_parameter("energy", total_energy)
+		mat.set_shader_parameter("time", time)
 
 	# Background rotation
 	background_sphere.rotation.y = time * 0.05

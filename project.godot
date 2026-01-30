@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [audio]
 
+buses/default_bus_layout="uid://bct4lbrs4jp0u"
 driver/enable_input=true
 
 [physics]
@@ -26,3 +27,5 @@ driver/enable_input=true
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/screen_space_aa=1
