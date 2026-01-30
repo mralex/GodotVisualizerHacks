@@ -3,6 +3,15 @@
 [ext_resource type="Script" uid="uid://dol3lop6r62v4" path="res://AudioVisualizer.gd" id="1_visualizer"]
 [ext_resource type="Script" uid="uid://byh0kok53wjdj" path="res://OrbitCamera.gd" id="2_orbit"]
 
+[sub_resource type="CameraAttributesPractical" id="CameraAttributes_dof"]
+dof_blur_far_enabled = true
+dof_blur_far_distance = 8.0
+dof_blur_far_transition = 4.0
+dof_blur_near_enabled = true
+dof_blur_near_distance = 2.0
+dof_blur_near_transition = 1.5
+dof_blur_amount = 0.15
+
 [sub_resource type="Environment" id="Environment_world"]
 background_mode = 1
 background_color = Color(0.005, 0.005, 0.008, 1)
@@ -24,6 +33,7 @@ glow_hdr_luminance_cap = 6.0
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1690824619]
 transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 3, 5)
 fov = 60.0
+attributes = SubResource("CameraAttributes_dof")
 script = ExtResource("2_orbit")
 
 [node name="AudioVisualizer" type="Node3D" parent="." unique_id=879157685]
