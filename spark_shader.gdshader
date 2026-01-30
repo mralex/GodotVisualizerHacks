@@ -27,12 +27,12 @@ void fragment() {
 	// Only visible when energy is present
 	float visibility = step(0.1, energy) * life * flicker;
 
-	// Color: white-hot core, yellow-orange edge
-	vec3 core_color = vec3(1.0, 1.0, 0.95);
-	vec3 edge_color = vec3(1.0, 0.6, 0.1);
+	// Sparks - the main orange pop, but still restrained
+	vec3 core_color = vec3(0.9, 0.4, 0.1);
+	vec3 edge_color = vec3(0.6, 0.1, 0.0);
 	vec3 color = mix(edge_color, core_color, core);
 
-	float alpha = (core * 2.0 + glow * 0.5) * visibility * energy;
+	float alpha = (core * 0.8 + glow * 0.1) * visibility * energy;
 
-	ALBEDO = color * alpha * 1.5;
+	ALBEDO = color * alpha * 0.7;
 }

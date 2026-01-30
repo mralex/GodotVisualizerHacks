@@ -27,22 +27,23 @@ void vertex() {
 }
 
 void fragment() {
-	// Gradient along ribbon
-	float gradient = UV.x;
+	// Gray ribbon
+	float noise = fract(sin(dot(UV * 100.0, vec2(12.9898, 78.233))) * 43758.5453);
+	vec3 gray_base = vec3(0.12 + noise * 0.03);
 
-	vec3 color1 = vec3(0.6, 0.1, 0.8); // Purple
-	vec3 color2 = vec3(0.1, 0.8, 0.7); // Cyan
-	vec3 color = mix(color1, color2, gradient + sin(time + ribbon_id) * 0.3);
-
-	// Edge glow
+	// Edge mask
 	float edge = abs(UV.y - 0.5) * 2.0;
-	edge = 1.0 - smoothstep(0.7, 1.0, edge);
+	float edge_mask = 1.0 - smoothstep(0.7, 1.0, edge);
 
-	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
+	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 4.0);
 
-	ALBEDO = color * 0.4 * edge;
-	EMISSION = color * (fresnel * energy + 0.2) * edge;
-	ALPHA = edge * (0.6 + energy * 0.4);
-	METALLIC = 0.3;
-	ROUGHNESS = 0.4;
+	// Very subtle warm edge glow
+	vec3 accent = vec3(0.4, 0.08, 0.0);
+	vec3 emission = accent * fresnel * energy * energy * 0.08;
+
+	ALBEDO = gray_base * edge_mask;
+	EMISSION = emission * edge_mask;
+	ALPHA = edge_mask * (0.7 + energy * 0.15);
+	METALLIC = 0.4;
+	ROUGHNESS = 0.55 + noise * 0.15;
 }

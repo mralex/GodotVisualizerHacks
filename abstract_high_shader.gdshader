@@ -24,21 +24,25 @@ void vertex() {
 }
 
 void fragment() {
-	// Bright point-like appearance
 	vec2 uv = UV * 2.0 - 1.0;
 	float dist = length(uv);
 
-	// Soft circular falloff
+	// Soft falloff
 	float alpha = 1.0 - smoothstep(0.0, 1.0, dist);
-	alpha = pow(alpha, 1.5 - energy);
+	alpha = pow(alpha, 1.5);
 
-	// Color: white core, colored edge
-	vec3 core_color = vec3(1.0, 0.95, 0.8);
-	vec3 edge_color = vec3(1.0, 0.6, 0.2);
-	vec3 color = mix(edge_color, core_color, alpha);
+	// Gray particles
+	vec3 gray = vec3(0.25);
 
 	// Flicker
-	float flicker = sin(time * 15.0 + particle_id * 7.0) * 0.3 + 0.7;
+	float noise = fract(sin(time * 15.0 + particle_id * 13.7) * 43758.5453);
+	float flicker = 0.8 + noise * 0.2;
 
-	ALBEDO = color * alpha * (0.3 + energy * 1.5) * flicker;
+	// Very subtle warm tint only at high energy
+	vec3 warm = vec3(0.3, 0.1, 0.05);
+	vec3 color = gray + warm * energy * energy * 0.2;
+
+	float visibility = smoothstep(0.05, 0.15, energy);
+
+	ALBEDO = color * alpha * (0.2 + energy * 0.4) * flicker * visibility;
 }

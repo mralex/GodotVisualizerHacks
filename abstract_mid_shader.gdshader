@@ -26,32 +26,18 @@ void vertex() {
 }
 
 void fragment() {
-	// Flowing color based on position and time
-	float hue = fract(time * 0.1 + UV.x * 0.3 + energy * 0.5);
+	// Neutral gray
+	float noise = fract(sin(dot(UV * 80.0, vec2(12.9898, 78.233))) * 43758.5453);
+	vec3 gray_base = vec3(0.1 + noise * 0.04);
 
-	// HSV to RGB
-	vec3 color;
-	float h = hue * 6.0;
-	float c = 0.7 + energy * 0.3;
-	float x = c * (1.0 - abs(mod(h, 2.0) - 1.0));
-	if (h < 1.0) color = vec3(c, x, 0.0);
-	else if (h < 2.0) color = vec3(x, c, 0.0);
-	else if (h < 3.0) color = vec3(0.0, c, x);
-	else if (h < 4.0) color = vec3(0.0, x, c);
-	else if (h < 5.0) color = vec3(x, 0.0, c);
-	else color = vec3(c, 0.0, x);
+	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 4.0);
 
-	// Shift toward teal/cyan
-	color = mix(vec3(0.0, 0.5, 0.6), color, 0.5 + energy * 0.5);
+	// Very faint red-orange rim only at high energy
+	vec3 accent = vec3(0.5, 0.1, 0.0);
+	vec3 emission = accent * fresnel * energy * energy * 0.1;
 
-	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
-
-	// Wireframe-like edge glow
-	float edge = 1.0 - abs(dot(NORMAL, VIEW));
-	edge = smoothstep(0.3, 0.8, edge);
-
-	ALBEDO = color * 0.5;
-	EMISSION = color * (fresnel * 0.8 + edge * 0.5) * energy;
-	METALLIC = 0.6;
-	ROUGHNESS = 0.2;
+	ALBEDO = gray_base;
+	EMISSION = emission;
+	METALLIC = 0.5;
+	ROUGHNESS = 0.5 + noise * 0.2;
 }

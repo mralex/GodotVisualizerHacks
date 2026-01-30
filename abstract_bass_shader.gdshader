@@ -34,24 +34,20 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 color_low = vec3(0.15, 0.0, 0.3);
-	vec3 color_high = vec3(0.8, 0.1, 0.4);
-	vec3 base_color = mix(color_low, color_high, energy);
+	// Neutral gray base
+	float noise = fract(sin(dot(UV * 50.0 + time * 0.1, vec2(12.9898, 78.233))) * 43758.5453);
+	vec3 gray_base = vec3(0.08 + noise * 0.03);
 
-	// Iridescent effect based on view angle
-	float iridescence = dot(NORMAL, VIEW) * 0.5 + 0.5;
-	vec3 irid_color = vec3(
-		sin(iridescence * 6.28 + time) * 0.5 + 0.5,
-		sin(iridescence * 6.28 + time + 2.09) * 0.5 + 0.5,
-		sin(iridescence * 6.28 + time + 4.18) * 0.5 + 0.5
-	);
-	base_color = mix(base_color, irid_color, energy * 0.4);
+	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 4.0);
 
-	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.5);
+	// Very subtle orange only on strong energy + edge
+	vec3 accent = vec3(0.6, 0.15, 0.0);
+	float accent_strength = fresnel * energy * energy * 0.15;
+	vec3 emission = accent * accent_strength;
 
-	ALBEDO = base_color * 0.6;
-	EMISSION = base_color * fresnel * energy * 1.2;
+	ALBEDO = gray_base;
+	EMISSION = emission;
 	METALLIC = 0.4;
-	ROUGHNESS = 0.3;
-	ALPHA = 0.85 + energy * 0.15;
+	ROUGHNESS = 0.6 + noise * 0.2;
+	ALPHA = 0.95;
 }
