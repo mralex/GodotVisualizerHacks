@@ -13,6 +13,13 @@ var center_form: MeshInstance3D
 var background_sphere: MeshInstance3D
 var orbit_rings: Array[MeshInstance3D] = []
 
+# MIDI trigger state
+var beat_pulse_intensity: float = 0.0
+var bass_trigger_intensity: float = 0.0
+var mid_trigger_intensity: float = 0.0
+var high_trigger_intensity: float = 0.0
+const TRIGGER_DECAY: float = 8.0  # How fast triggers fade
+
 # Materials
 var bass_material: ShaderMaterial
 var mid_material: ShaderMaterial
@@ -381,13 +388,25 @@ func setup_post_processing(parent: Node) -> void:
 	canvas_layer.add_child(post_process_rect)
 
 func update(delta: float, time: float, bass_energy: float, mid_energy: float, high_energy: float, total_energy: float) -> void:
-	update_crystals(delta, time, bass_energy)
-	update_ribbons(delta, time, mid_energy)
-	update_particles(delta, time, high_energy)
-	update_orbit_rings(delta, time, mid_energy)
-	update_sparks(delta, time, total_energy)
-	update_center_form(time, total_energy)
-	update_background_shapes(delta, time, total_energy)
+	# Decay MIDI trigger intensities
+	beat_pulse_intensity = maxf(0.0, beat_pulse_intensity - delta * TRIGGER_DECAY)
+	bass_trigger_intensity = maxf(0.0, bass_trigger_intensity - delta * TRIGGER_DECAY)
+	mid_trigger_intensity = maxf(0.0, mid_trigger_intensity - delta * TRIGGER_DECAY)
+	high_trigger_intensity = maxf(0.0, high_trigger_intensity - delta * TRIGGER_DECAY)
+
+	# Combine audio energy with MIDI triggers
+	var combined_bass := maxf(bass_energy, bass_trigger_intensity)
+	var combined_mid := maxf(mid_energy, mid_trigger_intensity)
+	var combined_high := maxf(high_energy, high_trigger_intensity)
+	var combined_total := maxf(total_energy, beat_pulse_intensity)
+
+	update_crystals(delta, time, combined_bass)
+	update_ribbons(delta, time, combined_mid)
+	update_particles(delta, time, combined_high)
+	update_orbit_rings(delta, time, combined_mid)
+	update_sparks(delta, time, combined_total)
+	update_center_form(time, combined_total)
+	update_background_shapes(delta, time, combined_total)
 	update_background(time)
 
 func update_crystals(delta: float, time: float, bass_energy: float) -> void:
@@ -537,3 +556,25 @@ func update_shader_params(time: float, bass_energy: float, mid_energy: float, hi
 		post_process_material.set_shader_parameter("mid", mid_energy)
 		post_process_material.set_shader_parameter("high", high_energy)
 		post_process_material.set_shader_parameter("time", time)
+
+
+## MIDI trigger methods - called from MidiController signals
+
+func trigger_beat_pulse() -> void:
+	## Trigger a visual pulse on the beat from MIDI clock
+	beat_pulse_intensity = 1.0
+
+
+func trigger_bass(velocity: float) -> void:
+	## Trigger bass visuals from MIDI note
+	bass_trigger_intensity = velocity
+
+
+func trigger_mid(velocity: float) -> void:
+	## Trigger mid visuals from MIDI note
+	mid_trigger_intensity = velocity
+
+
+func trigger_high(velocity: float) -> void:
+	## Trigger high visuals from MIDI note
+	high_trigger_intensity = velocity

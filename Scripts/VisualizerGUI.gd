@@ -8,20 +8,25 @@ var gui_panel: PanelContainer
 var gui_visible: bool = false
 var gui_sliders: Dictionary = {}
 var audio_input_dropdown: OptionButton
+var midi_port_dropdown: OptionButton
+var midi_bpm_label: Label
+var midi_activity_indicator: ColorRect
 
 var audio_analyzer: AudioAnalyzer
 var orbit_camera: Node
 var hacker_overlay: HackerOverlay
+var midi_controller: MidiController
 
 # Defaults for camera
 const DEFAULT_CAM_SPEED: float = 0.3
 const DEFAULT_CAM_RADIUS: float = 6.0
 const DEFAULT_CAM_HEIGHT: float = 3.0
 
-func setup(parent: Node, p_audio_analyzer: AudioAnalyzer, p_orbit_camera: Node, p_hacker_overlay: HackerOverlay) -> void:
+func setup(parent: Node, p_audio_analyzer: AudioAnalyzer, p_orbit_camera: Node, p_hacker_overlay: HackerOverlay, p_midi_controller: MidiController = null) -> void:
 	audio_analyzer = p_audio_analyzer
 	orbit_camera = p_orbit_camera
 	hacker_overlay = p_hacker_overlay
+	midi_controller = p_midi_controller
 
 	gui_layer = CanvasLayer.new()
 	gui_layer.layer = 20
@@ -52,6 +57,11 @@ func setup(parent: Node, p_audio_analyzer: AudioAnalyzer, p_orbit_camera: Node, 
 
 	# Audio input selector
 	setup_audio_input(vbox)
+
+	# MIDI section
+	if midi_controller:
+		vbox.add_child(HSeparator.new())
+		setup_midi_section(vbox)
 
 	# Separator
 	vbox.add_child(HSeparator.new())
@@ -175,6 +185,135 @@ func setup_audio_input(vbox: VBoxContainer) -> void:
 
 	audio_hbox.add_child(audio_input_dropdown)
 	vbox.add_child(audio_hbox)
+
+
+func setup_midi_section(vbox: VBoxContainer) -> void:
+	var midi_label = Label.new()
+	midi_label.text = "MIDI INPUT"
+	midi_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	vbox.add_child(midi_label)
+
+	# MIDI port selector
+	var midi_hbox = HBoxContainer.new()
+	midi_hbox.add_theme_constant_override("separation", 10)
+
+	var port_label = Label.new()
+	port_label.text = "MIDI Port"
+	port_label.custom_minimum_size.x = 80
+	port_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	midi_hbox.add_child(port_label)
+
+	midi_port_dropdown = OptionButton.new()
+	midi_port_dropdown.custom_minimum_size.x = 200
+	var dropdown_style = StyleBoxFlat.new()
+	dropdown_style.bg_color = Color(0.2, 0.2, 0.22)
+	dropdown_style.set_corner_radius_all(3)
+	dropdown_style.set_content_margin_all(5)
+	midi_port_dropdown.add_theme_stylebox_override("normal", dropdown_style)
+	midi_port_dropdown.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+
+	_refresh_midi_ports()
+
+	midi_port_dropdown.item_selected.connect(_on_midi_port_selected)
+	midi_hbox.add_child(midi_port_dropdown)
+
+	# Refresh button
+	var refresh_btn = Button.new()
+	refresh_btn.text = "↻"
+	refresh_btn.tooltip_text = "Refresh MIDI ports"
+	refresh_btn.pressed.connect(_refresh_midi_ports)
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = Color(0.25, 0.25, 0.28)
+	btn_style.set_corner_radius_all(3)
+	btn_style.set_content_margin_all(4)
+	refresh_btn.add_theme_stylebox_override("normal", btn_style)
+	midi_hbox.add_child(refresh_btn)
+
+	vbox.add_child(midi_hbox)
+
+	# BPM and activity display
+	var status_hbox = HBoxContainer.new()
+	status_hbox.add_theme_constant_override("separation", 10)
+
+	var bpm_prefix = Label.new()
+	bpm_prefix.text = "BPM:"
+	bpm_prefix.custom_minimum_size.x = 80
+	bpm_prefix.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	status_hbox.add_child(bpm_prefix)
+
+	midi_bpm_label = Label.new()
+	midi_bpm_label.text = "---"
+	midi_bpm_label.custom_minimum_size.x = 60
+	midi_bpm_label.add_theme_color_override("font_color", Color(0.9, 0.5, 0.2))
+	status_hbox.add_child(midi_bpm_label)
+
+	var activity_label = Label.new()
+	activity_label.text = "Activity:"
+	activity_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	status_hbox.add_child(activity_label)
+
+	midi_activity_indicator = ColorRect.new()
+	midi_activity_indicator.custom_minimum_size = Vector2(12, 12)
+	midi_activity_indicator.color = Color(0.3, 0.3, 0.3)
+	status_hbox.add_child(midi_activity_indicator)
+
+	vbox.add_child(status_hbox)
+
+	# Connect to MIDI signals for activity indication
+	if midi_controller:
+		midi_controller.clock_tick.connect(_on_midi_activity)
+		midi_controller.note_triggered.connect(func(_n, _v): _on_midi_activity())
+		midi_controller.cc_changed.connect(func(_c, _v): _on_midi_activity())
+
+
+func _refresh_midi_ports() -> void:
+	if not midi_port_dropdown or not midi_controller:
+		return
+
+	midi_port_dropdown.clear()
+	midi_port_dropdown.add_item("(None)", -1)
+
+	var ports := midi_controller.get_available_ports()
+	for i in range(ports.size()):
+		midi_port_dropdown.add_item(ports[i], i)
+
+	# Select current port if one is open
+	if midi_controller.midi_port >= 0:
+		midi_port_dropdown.selected = midi_controller.midi_port + 1  # +1 for "(None)" entry
+
+
+func _on_midi_port_selected(idx: int) -> void:
+	if not midi_controller:
+		return
+
+	var port_id := midi_port_dropdown.get_item_id(idx)
+	if port_id < 0:
+		midi_controller.close_port()
+		midi_bpm_label.text = "---"
+	else:
+		midi_controller.open_port(port_id)
+
+
+var _activity_fade: float = 0.0
+
+func _on_midi_activity() -> void:
+	_activity_fade = 1.0
+
+
+func _process(delta: float) -> void:
+	# Update MIDI activity indicator
+	if midi_activity_indicator:
+		_activity_fade = maxf(0.0, _activity_fade - delta * 5.0)
+		midi_activity_indicator.color = Color(0.2 + _activity_fade * 0.6, 0.8 * _activity_fade, 0.2, 1.0)
+
+	# Update BPM display
+	if midi_bpm_label and midi_controller and midi_controller.is_port_open():
+		var bpm := midi_controller.get_bpm()
+		if bpm > 0:
+			midi_bpm_label.text = "%.1f" % bpm
+		else:
+			midi_bpm_label.text = "---"
+
 
 func create_slider(key: String, label_text: String, initial_value: float, min_val: float, max_val: float, callback: Callable) -> HBoxContainer:
 	var hbox = HBoxContainer.new()

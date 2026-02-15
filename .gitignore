@@ -2,4 +2,6 @@
 .godot/
 /android/
 Build/
-
+bin/
+.sconsign*
+.DS_Store

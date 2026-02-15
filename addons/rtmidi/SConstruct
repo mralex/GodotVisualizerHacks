@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+import os
+import sys
+
+# Try to find godot-cpp
+godot_cpp_path = os.environ.get('GODOT_CPP_PATH', '../../../godot-cpp')
+if not os.path.exists(godot_cpp_path):
+    # Try common locations
+    for path in ['../godot-cpp', '../../godot-cpp', '../../../godot-cpp',
+                 os.path.expanduser('~/src/godot-cpp'), '/usr/local/src/godot-cpp']:
+        if os.path.exists(path):
+            godot_cpp_path = path
+            break
+
+if not os.path.exists(godot_cpp_path):
+    print("Error: godot-cpp not found. Set GODOT_CPP_PATH environment variable.")
+    print("  Example: export GODOT_CPP_PATH=/path/to/godot-cpp")
+    sys.exit(1)
+
+env = SConscript(godot_cpp_path + '/SConstruct')
+
+# Add RtMidi defines based on platform
+if env['platform'] == 'macos':
+    env.Append(CPPDEFINES=['__MACOSX_CORE__'])
+    env.Append(LINKFLAGS=[
+        '-framework', 'CoreMIDI',
+        '-framework', 'CoreAudio',
+        '-framework', 'CoreFoundation',
+    ])
+elif env['platform'] == 'linux':
+    env.Append(CPPDEFINES=['__LINUX_ALSA__'])
+    env.Append(LIBS=['asound', 'pthread'])
+elif env['platform'] == 'windows':
+    env.Append(CPPDEFINES=['__WINDOWS_MM__'])
+    env.Append(LIBS=['winmm'])
+
+# Include paths
+env.Append(CPPPATH=[
+    'src/',
+    'lib/rtmidi/',
+])
+
+# Source files
+sources = Glob('src/*.cpp') + Glob('lib/rtmidi/*.cpp')
+
+# Output library name
+if env['platform'] == 'macos':
+    library = env.SharedLibrary(
+        'bin/librtmidi.{}.{}.framework/librtmidi.{}.{}'.format(
+            env['platform'], env['target'], env['platform'], env['target']
+        ),
+        source=sources,
+    )
+elif env['platform'] == 'linux':
+    library = env.SharedLibrary(
+        'bin/librtmidi.{}.{}.{}{}'.format(
+            env['platform'], env['target'], env['arch'], env['SHLIBSUFFIX']
+        ),
+        source=sources,
+    )
+elif env['platform'] == 'windows':
+    library = env.SharedLibrary(
+        'bin/rtmidi.{}.{}.{}{}'.format(
+            env['platform'], env['target'], env['arch'], env['SHLIBSUFFIX']
+        ),
+        source=sources,
+    )
+
+Default(library)
