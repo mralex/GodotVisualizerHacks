@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/StarfieldVisualizer.gd" id="1_starfield_vis"]
+[ext_resource type="Script" path="res://Scripts/FlightCamera.gd" id="2_flight_cam"]
+
+[sub_resource type="Environment" id="Environment_space"]
+background_mode = 1
+background_color = Color(0.0, 0.0, 0.0, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.02, 0.02, 0.03, 1)
+ambient_light_energy = 0.05
+tonemap_mode = 3
+tonemap_exposure = 1.0
+glow_enabled = true
+glow_intensity = 3.0
+glow_strength = 0.8
+glow_bloom = 0.85
+glow_blend_mode = 0
+glow_hdr_scale = 1.5
+glow_hdr_luminance_cap = 8.0
+adjustment_enabled = true
+adjustment_contrast = 1.1
+adjustment_saturation = 1.1
+
+[node name="Starfield" type="Node3D"]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+fov = 75.0
+script = ExtResource("2_flight_cam")
+
+[node name="StarfieldVisualizer" type="Node3D" parent="."]
+script = ExtResource("1_starfield_vis")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_space")

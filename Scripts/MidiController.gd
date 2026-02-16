@@ -45,27 +45,43 @@ func _ready() -> void:
 
 func _try_init_rtmidi() -> void:
 	# Try to use RtMidi GDExtension if available
-	if ClassDB.class_exists("GodotRtMidiIn"):
-		midi_in = ClassDB.instantiate("GodotRtMidiIn")
-		if midi_in:
-			using_rtmidi = true
-			print("MidiController: Using RtMidi GDExtension")
-
-			if auto_connect and midi_in.get_port_count() > 0:
-				if midi_port >= 0:
-					open_port(midi_port)
-				else:
-					# Auto-connect to first port
-					open_port(0)
-	else:
+	if not ClassDB.class_exists("GodotRtMidiIn"):
 		print("MidiController: RtMidi GDExtension not available")
+		return
+
+	# ClassDB may report the class exists even if the native library failed to load
+	# (e.g. release binary missing). Wrap instantiation to catch failures.
+	midi_in = ClassDB.instantiate("GodotRtMidiIn")
+	if midi_in == null:
+		print("MidiController: RtMidi class exists but instantiation failed (missing native library?)")
+		return
+
+	# Verify the instance actually works by calling a method
+	var port_count: int = -1
+	if midi_in.has_method("get_port_count"):
+		port_count = midi_in.get_port_count()
+	else:
+		print("MidiController: RtMidi instance missing expected methods, disabling")
+		midi_in = null
+		return
+
+	using_rtmidi = true
+	print("MidiController: Using RtMidi GDExtension (%d ports)" % port_count)
+
+	if auto_connect and port_count > 0:
+		if midi_port >= 0:
+			open_port(midi_port)
+		else:
+			open_port(0)
 
 
 func _init_godot_midi() -> void:
 	# Fall back to Godot's built-in MIDI
+	# Defer opening so the engine is fully initialized
 	OS.open_midi_inputs()
+	var inputs = OS.get_connected_midi_inputs()
 	using_godot_midi = true
-	print("MidiController: Using Godot built-in MIDI")
+	print("MidiController: Using Godot built-in MIDI (%d devices)" % inputs.size())
 
 
 func _process(_delta: float) -> void:
